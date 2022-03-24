@@ -45,6 +45,13 @@ def is_image(message: discord.Message) -> bool:
     return False
 
 
+def clip_string_length(string: str, length: int):
+    """ Clip a string to some amount of characters. """
+    if len(string) >= length:
+        return string[:length - 3].rstrip() + "..."
+    return string
+
+
 def generate_gh_embed(number: int, repo: github.Repository.Repository) -> \
         Optional[discord.Embed]:
     """ Generate a single discord embed from a GitHub issue / pull request number. """
@@ -68,7 +75,7 @@ def generate_gh_embed(number: int, repo: github.Repository.Repository) -> \
         )
         embed.add_field(
             name="Description",
-            value=issue.body,
+            value=clip_string_length(issue.body, 200),
             inline=False
         )
         return embed
