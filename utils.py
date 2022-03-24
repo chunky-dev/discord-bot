@@ -1,4 +1,4 @@
-from typing import *
+from typing import Optional
 import logging
 import re
 import urllib.parse
@@ -15,6 +15,7 @@ URL_REGEX = re.compile(r"http\S*")
 
 
 def _match_fname(filename: str) -> bool:
+    """ Match a filename against the allowable image suffixes. """
     fname = filename.lower()
     for suffix in IMAGE_SUFFIXES:
         if fname.endswith(suffix):
@@ -23,11 +24,12 @@ def _match_fname(filename: str) -> bool:
 
 
 def is_image(message: discord.Message) -> bool:
+    """ Check if a message contains an image either through an attachment or link. """
     # Image(s) were uploaded
     if len(message.attachments) > 0:
         for attachment in message.attachments:
-            assert isinstance(attachment.filename, str)
-            if _match_fname(attachment.filename):
+            if isinstance(attachment.filename, str) and \
+                    _match_fname(attachment.filename):
                 return True
 
     # Check for an image URL
@@ -43,7 +45,9 @@ def is_image(message: discord.Message) -> bool:
     return False
 
 
-def generate_gh_embed(number: int, repo: github.Repository.Repository) -> Optional[discord.Embed]:
+def generate_gh_embed(number: int, repo: github.Repository.Repository) -> \
+        Optional[discord.Embed]:
+    """ Generate a single discord embed from a GitHub issue / pull request number. """
     try:
         issue = repo.get_issue(number)
         embed = discord.Embed(
@@ -69,11 +73,14 @@ def generate_gh_embed(number: int, repo: github.Repository.Repository) -> Option
         )
         return embed
     except github.GithubException as e:
-        logging.getLogger("github").warning(f"Failed to fetch object number {number}. {e}")
+        logging.getLogger("github").warning(f"Failed to fetch object number {number}. "
+                                            f"{e}")
         return None
 
 
-def generate_gh_embed_snippet(embed: discord.Embed, number: id, repo: github.Repository.Repository):
+def generate_gh_embed_snippet(embed: discord.Embed, number: id,
+                              repo: github.Repository.Repository):
+    """ Generate a partial discord embed from a GitHub issue / pull request number. """
     try:
         issue = repo.get_issue(number)
         embed.add_field(
@@ -97,4 +104,5 @@ def generate_gh_embed_snippet(embed: discord.Embed, number: id, repo: github.Rep
             inline=True
         )
     except github.GithubException as e:
-        logging.getLogger("github").warning(f"Failed to fetch object number {number}. {e}")
+        logging.getLogger("github").warning(f"Failed to fetch object number {number}. "
+                                            f"{e}")

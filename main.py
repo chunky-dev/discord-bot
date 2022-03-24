@@ -1,13 +1,12 @@
+from typing import List, Tuple
 import argparse
 import configparser
 import logging
 import re
-from typing import *
 
 import discord
 import discord_slash
 import github
-import github.Repository
 
 import utils
 
@@ -25,31 +24,41 @@ LOG_LEVEL_MAP = {
 
 
 class Bot(discord.Client):
+    """
+    The main bot. Handles finding GitHub numbers in messages,
+    react-remove messages, and deleting non-images from image only channels.
+    """
+
     GH_REGEX = re.compile(r"#\d+")
 
-    def __init__(self, repo, image_only: List[Tuple[int, str]], *args, **kwargs):
+    def __init__(self, repo, image_only: List[Tuple[int, str]],
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._repo = repo
         self._image_only = image_only
-        self._image_only_channels = set(i[0] for i in image_only)
         self._logger = logging.getLogger("bot")
 
     async def on_message(self, message: discord.Message):
+        """ On message callback. Find GitHub numbers, delete non-images. """
+
         # Check if the message is from ourselves
         if message.author.id == self.user.id:
             return
 
         # Check if we are in the renderers channel
-        if message.channel.id in self._image_only_channels:
-            if not utils.is_image(message):
-                self._logger.info(f"Removing message {message.id} in {message.channel.id} for not having an image.")
-                warn = await message.reply(
-                    content="You need to provide a direct link to your render or upload it as an attachment!",
-                    mention_author=True
-                )
-                await message.delete()
-                await warn.delete(delay=10)
-            return
+        for channel, warn in self._image_only:
+            if message.channel.id == channel:
+                if not utils.is_image(message):
+                    self._logger.info(f"Removing message {message.id} in "
+                                      f"{message.channel.id} for not having "
+                                      f"an image.")
+                    warning = await message.reply(
+                        content=warn,
+                        mention_author=True
+                    )
+                    await message.delete()
+                    await warning.delete(delay=10)
+                return
 
         # Look for GitHub issues / pull requests
         numbers = self.GH_REGEX.findall(message.content)
@@ -61,14 +70,16 @@ class Bot(discord.Client):
             self._logger.info(f"Message {message.id} with one GitHub number.")
             embed = utils.generate_gh_embed(numbers[0], self._repo)
         elif len(numbers) > 1:
-            self._logger.info(f"Message {message.id} with {len(numbers)} GitHub numbers.")
+            self._logger.info(f"Message {message.id} with {len(numbers)} "
+                              f"GitHub numbers.")
             embed = discord.Embed(title="Issues / pull requests")
             for number in numbers:
                 utils.generate_gh_embed_snippet(embed, number, self._repo)
 
         # Send the message
         if embed is not None:
-            embed.set_footer(text=f"React with {REMOVE_EMOJI} to remove.\n{message.author.id}")
+            embed.set_footer(text=f"React with {REMOVE_EMOJI} to remove.\n"
+                                  f"{message.author.id}")
             m = await message.reply(
                 embed=embed,
                 mention_author=False
@@ -76,6 +87,8 @@ class Bot(discord.Client):
             await m.add_reaction(REMOVE_EMOJI)
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        """ Handle react-remove messages. """
+
         if payload.user_id == self.user.id:
             return  # Event from us
         if payload.emoji != REMOVE_EMOJI:
@@ -109,37 +122,51 @@ class Bot(discord.Client):
 
 
 class Slash(discord_slash.SlashCommand):
+    """ /gh Slash command. """
+
     def __init__(self, repo, image_only: List[Tuple[int, str]], *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._repo = repo
         self._logger = logging.getLogger("bot-slash")
-        self._image_only_channels = set(i[0] for i in image_only)
+        self._image_only_channels = {i[0] for i in image_only}
 
-        self.add_slash_command(self.gh, name="gh", description="Get a Github pull / issue from its number.")
+        self.add_slash_command(
+            self.gh,
+            name="gh",
+            description="Get a Github pull request / issue from its number."
+        )
 
     async def gh(self, ctx, number: int):
+        """ /gh [number] command. """
+
         if ctx.channel_id in self._image_only_channels:
-            self._logger.info(f"Attempted slash command in protected channel {ctx.channel_id}.")
-            await ctx.send(content=f"Cannot send text messages in this channel.", hidden=True)
+            self._logger.info(f"Attempted slash command in protected channel "
+                              f"{ctx.channel_id}.")
+            await ctx.send(content="Cannot send text messages in this channel.",
+                           hidden=True)
             return
 
         embed = utils.generate_gh_embed(number, self._repo)
         if embed is not None:
             self._logger.info(f"Slash command with valid GitHub number #{number}.")
-            embed.set_footer(text=f"React with {REMOVE_EMOJI} to remove.\n{ctx.author_id}")
+            embed.set_footer(text=f"React with {REMOVE_EMOJI} to remove.\n"
+                                  f"{ctx.author_id}")
             m = await ctx.send(embed=embed, hidden=False)
             await m.add_reaction(REMOVE_EMOJI)
         else:
             self._logger.info(f"Slash command with invalid GitHub number #{number}.")
-            await ctx.send(content=f"Invalid pull / issue number: #{number}", hidden=True)
+            await ctx.send(content=f"Invalid pull / issue number: #{number}",
+                           hidden=True)
 
 
+# skipcq PY-D0003 - docstring for main
 def main():
     parser = argparse.ArgumentParser(description="Chunky Discord Bot")
     parser.add_argument("discord", help="Discord API key.")
     parser.add_argument("--github", help="Github API key.", default=None)
     parser.add_argument("--log-level", help="Log level (default INFO).", default="INFO")
-    parser.add_argument("--config", help="Path to the config file.", default="config.ini")
+    parser.add_argument("--config", help="Path to the config file.",
+                        default="config.ini")
     parser.add_argument("--debug-guild", help="Debug guild id.", default=None)
     args = parser.parse_args()
 
@@ -172,10 +199,12 @@ def main():
             except ValueError:
                 logging.getLogger("bot").error(f"Invalid [IMAGE_ONLY] channel {key}.")
     else:
-        logging.getLogger("bot").warning("Config does not contain an [IMAGE_ONLY] section. Bot will not filter any channels.")
+        logging.getLogger("bot").warning("Config does not contain an [IMAGE_ONLY] "
+                                         "section. Bot will not filter any channels.")
 
     bot = Bot(repo, image_only)
-    slash = Slash(repo, image_only, client=bot, debug_guild=args.debug_guild, sync_commands=True)
+    _slash = Slash(repo, image_only, client=bot, debug_guild=args.debug_guild,
+                   sync_commands=True)
 
     # OAUTH2 must have `bot` and `applications.commands` scopes
     # Bot permissions: 274877982784
