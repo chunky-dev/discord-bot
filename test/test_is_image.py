@@ -2,9 +2,9 @@ from typing import *
 
 import discord
 
-import imposter
 from imposter import *
-import utils
+
+import src.utils as utils
 
 
 TEST_FILES_IMAGES = [
