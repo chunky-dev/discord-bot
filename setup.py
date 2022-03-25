@@ -9,5 +9,5 @@ setup(
     description='Friendly bot for the Chunky Discord server.',
     url='https://github.com/chunky-dev/discord-bot',
     packages=['src'],
-    install_requires=parse_requirements('requirements.txt'),
+    install_requires=[str(r) for r in parse_requirements(open('requirements.txt'))],
 )
