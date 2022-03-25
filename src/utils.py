@@ -42,6 +42,16 @@ def is_image(message: discord.Message) -> bool:
         except ValueError:
             pass
 
+    # Check for an image embed
+    for embed in message.embeds:
+        if embed.image.url != discord.Embed.Empty:
+            return True
+        if embed.thumbnail.url != discord.Embed.Empty:
+            return True
+        if embed.video.url != discord.Embed.Empty or \
+           embed.video.proxy_url != discord.Embed.Empty:
+            return True
+
     return False
 
 

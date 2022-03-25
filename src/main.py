@@ -51,7 +51,7 @@ class Bot(discord.Client):
                 if not utils.is_image(message):
                     self._logger.info(f"Removing message {message.id} in "
                                       f"{message.channel.id} for not having "
-                                      f"an image.")
+                                      f"an image: {message.content}")
                     warning = await message.reply(
                         content=warn,
                         mention_author=True

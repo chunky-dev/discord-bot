@@ -1,5 +1,8 @@
 from typing import *
 
+import discord
+
+import imposter
 from imposter import *
 import utils
 
@@ -47,6 +50,12 @@ def _create_message(attachments: List[ImposterAttachment], content: str) -> Impo
     return message
 
 
+def _create_embed_message():
+    message = ImposterMessage()
+    message.embeds.append(discord.Embed())
+    return message
+
+
 def test_is_image():
     for file in TEST_FILES_IMAGES:
         message = _create_message([ImposterAttachment(file)], "")
@@ -66,4 +75,24 @@ def test_is_image():
 
     # Test an invalid url
     message = _create_message([ImposterAttachment("Not an image")], "http://[test/yes.png")
+    assert not utils.is_image(message)
+
+    # Test for embeds
+    message = _create_embed_message()
+    message.embeds[0].set_image(url="some url")
+    assert utils.is_image(message)
+
+    message = _create_embed_message()
+    message.embeds[0].set_thumbnail(url="some url")
+    assert utils.is_image(message)
+
+    message = _create_embed_message()
+    message.embeds[0]._video = {"url": "some url"}
+    assert utils.is_image(message)
+
+    message = _create_embed_message()
+    message.embeds[0]._video = {"proxy_url": "some url"}
+    assert utils.is_image(message)
+
+    message = _create_embed_message()
     assert not utils.is_image(message)

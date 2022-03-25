@@ -2,6 +2,7 @@ class ImposterMessage:
     def __init__(self):
         self.attachments = []
         self.content = ""
+        self.embeds = []
 
 
 class ImposterAttachment:
