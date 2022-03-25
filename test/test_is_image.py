@@ -1,10 +1,13 @@
 from typing import *
+import sys
+import os
 
 import discord
 
 from imposter import *
 
-import src.utils as utils
+sys.path.insert(1, os.path.join(sys.path[0], '../src'))
+import utils
 
 
 TEST_FILES_IMAGES = [
