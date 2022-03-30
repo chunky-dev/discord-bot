@@ -8,7 +8,7 @@ import github
 import github.Repository
 
 IMAGE_SUFFIXES = [
-    "jpg", "jpeg", "png", "tif", "tiff", "webp", "gif", "mp4"
+    ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".gif", ".mp4"
 ]
 
 URL_REGEX = re.compile(r"http\S*")
@@ -41,6 +41,16 @@ def is_image(message: discord.Message) -> bool:
                 return True
         except ValueError:
             pass
+
+    # Check for an image embed
+    for embed in message.embeds:
+        if embed.image.url != discord.Embed.Empty:
+            return True
+        if embed.thumbnail.url != discord.Embed.Empty:
+            return True
+        if embed.video.url != discord.Embed.Empty or \
+           embed.video.proxy_url != discord.Embed.Empty:
+            return True
 
     return False
 
