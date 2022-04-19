@@ -8,10 +8,12 @@ import discord
 import discord_slash
 import github
 
+import log
 import utils
 
 REMOVE_EMOJI = discord.PartialEmoji(name="❌")
 
+BOT_LOG = log.DiscordLogger([])
 
 LOG_LEVEL_MAP = {
     "ALL": logging.NOTSET,
@@ -38,6 +40,9 @@ class Bot(discord.Client):
         self._image_only = image_only
         self._logger = logging.getLogger("bot")
 
+    async def on_ready(self):
+        await BOT_LOG.register(self)
+
     async def on_message(self, message: discord.Message):
         """ On message callback. Find GitHub numbers, delete non-images. """
 
@@ -52,6 +57,7 @@ class Bot(discord.Client):
                     self._logger.info(f"Removing message {message.id} in "
                                       f"{message.channel.id} for not having "
                                       f"an image: {message.content}")
+                    await BOT_LOG.log(lambda: self._log_renderers_delete(message))
                     warning = await message.reply(
                         content=warn,
                         mention_author=True
@@ -85,6 +91,32 @@ class Bot(discord.Client):
                 mention_author=False
             )
             await m.add_reaction(REMOVE_EMOJI)
+
+    @staticmethod
+    def _log_renderers_delete(message: discord.Message) -> discord.Embed:
+        e = discord.Embed(
+            title="Deleted message in #renders",
+            color=discord.Color.from_rgb(255, 255, 255),
+            description=message.content,
+            type="rich"
+        )
+        e.add_field(
+            name="Attachments",
+            value='\n'.join([m.filename for m in message.attachments]) + "\u200B",
+            inline=False
+        )
+        e.add_field(
+            name="Message ID",
+            value=str(message.id),
+            inline=True
+        )
+        e.add_field(
+            name="From",
+            value=f"{message.author.name}#{message.author.discriminator}",
+            inline=True
+        )
+        e.timestamp = message.created_at
+        return e
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         """ Handle react-remove messages. """
@@ -179,6 +211,13 @@ def main():
     # Load config
     config = configparser.ConfigParser()
     config.read(args.config)
+
+    # Logging channels
+    if "LOGGING" in config:
+        c = []
+        for channel, _ in config["LOGGING"].items():
+            c.append(int(channel))
+        BOT_LOG.set_channels(c)
 
     # Setup GitHub
     if "GITHUB" not in config:
