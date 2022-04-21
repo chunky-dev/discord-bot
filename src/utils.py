@@ -154,7 +154,6 @@ class UrlListKeeper:
             self._lists = links
         self._LOGGER.info(f"Updated block list: {self._url}")
 
-
     def update_and_schedule(self, scheduler: sched.scheduler, interval: float):
         self.update()
         scheduler.enter(interval, 0, self.update_and_schedule,

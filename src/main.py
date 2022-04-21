@@ -63,9 +63,16 @@ class Bot(discord.Client):
                                   f"#{message.author.discriminator} "
                                   f"({message.author.id}) for spam: "
                                   f"{message.content}")
-                await BOT_LOG.log(lambda: self._log_spam_delete(message))
+                await BOT_LOG.log(lambda: self._log_spam(message, True))
                 await message.delete()
                 return
+            if SUS_LIST.match(url):
+                self._logger.info(f"Suspicious message {message.id} by"
+                                  f"{message.author.name} "
+                                  f"#{message.author.discriminator} "
+                                  f"({message.author.id}):"
+                                  f"{message.content}")
+                await BOT_LOG.log(lambda: self._log_spam(message, False))
 
         # Check if we are in the renderers channel
         for channel, warn in self._image_only:
@@ -136,9 +143,9 @@ class Bot(discord.Client):
         return e
 
     @staticmethod
-    def _log_spam_delete(message: discord.Message) -> discord.Embed:
+    def _log_spam(message: discord.Message, delete: bool) -> discord.Embed:
         e = discord.Embed(
-            title="Deleted message for spam",
+            title="Deleted message for spam" if delete else "Suspicious message",
             color=discord.Color.from_rgb(255, 0, 0),
             description=message.content,
             type="rich"
