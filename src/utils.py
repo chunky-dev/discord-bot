@@ -1,8 +1,10 @@
-from typing import Optional
+import sched
+from typing import Optional, Iterator
 import logging
 import re
 import urllib.parse
 
+import requests
 import discord
 import github
 import github.Repository
@@ -23,6 +25,15 @@ def _match_fname(filename: str) -> bool:
     return False
 
 
+def get_urls(text: str) -> Iterator[urllib.parse.ParseResult]:
+    urls = URL_REGEX.findall(text)
+    for url in urls:
+        try:
+            yield urllib.parse.urlparse(url)
+        except ValueError:
+            pass
+
+
 def is_image(message: discord.Message) -> bool:
     """ Check if a message contains an image either through an attachment or link. """
     # Image(s) were uploaded
@@ -33,14 +44,9 @@ def is_image(message: discord.Message) -> bool:
                 return True
 
     # Check for an image URL
-    urls = URL_REGEX.findall(message.content)
-    for url in urls:
-        try:
-            url = urllib.parse.urlparse(url)
-            if _match_fname(url.path):
-                return True
-        except ValueError:
-            pass
+    for url in get_urls(message.content):
+        if _match_fname(url.path):
+            return True
 
     # Check for an image embed
     for embed in message.embeds:
@@ -123,3 +129,32 @@ def generate_gh_embed_snippet(embed: discord.Embed, number: id,
     except github.GithubException as e:
         logging.getLogger("github").warning(f"Failed to fetch object number {number}. "
                                             f"{e}")
+
+
+class UrlListKeeper:
+    _LOGGER = logging.getLogger("url_list_keeper")
+
+    def __init__(self, url: str):
+        self._url = url
+        self._lists = set()
+
+    def set_url(self, url: str):
+        self._url = url
+        self._lists = set()
+
+    def match(self, url: urllib.parse.ParseResult):
+        loc = url.netloc.strip()
+        return loc in self._lists
+
+    def update(self):
+        self._LOGGER.info("Updating block list...")
+        with requests.get(self._url) as res:
+            links = res.text.split("\n")
+            links = {i.strip() for i in links}
+            self._lists = links
+        self._LOGGER.info(f"Updated block list: {self._url}")
+
+    def update_and_schedule(self, scheduler: sched.scheduler, interval: float):
+        self.update()
+        scheduler.enter(interval, 0, self.update_and_schedule,
+                        argument=(scheduler, interval))
