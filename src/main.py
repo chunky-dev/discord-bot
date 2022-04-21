@@ -1,3 +1,5 @@
+import sched
+import threading
 from typing import List, Tuple
 import argparse
 import configparser
@@ -14,6 +16,9 @@ import utils
 REMOVE_EMOJI = discord.PartialEmoji(name="❌")
 
 BOT_LOG = log.DiscordLogger([])
+
+BLOCK_LIST = utils.UrlListKeeper("")
+SUS_LIST = utils.UrlListKeeper("")
 
 LOG_LEVEL_MAP = {
     "ALL": logging.NOTSET,
@@ -49,6 +54,18 @@ class Bot(discord.Client):
         # Check if the message is from ourselves
         if message.author.id == self.user.id:
             return
+
+        # Check if it is spam
+        for url in utils.get_urls(message.content):
+            if BLOCK_LIST.match(url):
+                self._logger.info(f"Removing message {message.id} by "
+                                  f"{message.author.name} "
+                                  f"#{message.author.discriminator} "
+                                  f"({message.author.id}) for spam: "
+                                  f"{message.content}")
+                await BOT_LOG.log(lambda: self._log_spam_delete(message))
+                await message.delete()
+                return
 
         # Check if we are in the renderers channel
         for channel, warn in self._image_only:
@@ -113,6 +130,33 @@ class Bot(discord.Client):
         e.add_field(
             name="From",
             value=f"{message.author.name}#{message.author.discriminator}",
+            inline=True
+        )
+        e.timestamp = message.created_at
+        return e
+
+    @staticmethod
+    def _log_spam_delete(message: discord.Message) -> discord.Embed:
+        e = discord.Embed(
+            title="Deleted message for spam",
+            color=discord.Color.from_rgb(255, 0, 0),
+            description=message.content,
+            type="rich"
+        )
+        e.add_field(
+            name="In Channel",
+            value=f"{message.channel.id} ({message.channel.name})",
+            inline=False
+        )
+        e.add_field(
+            name="Message ID",
+            value=str(message.id),
+            inline=True
+        )
+        e.add_field(
+            name="From",
+            value=f"{message.author.name}#{message.author.discriminator} "
+                  f"({message.author.id})",
             inline=True
         )
         e.timestamp = message.created_at
@@ -211,6 +255,19 @@ def main():
     # Load config
     config = configparser.ConfigParser()
     config.read(args.config)
+
+    # Spam lists
+    if "SPAM" in config:
+        BLOCK_LIST.set_url(config["SPAM"]["block"])
+        SUS_LIST.set_url(config["SPAM"]["suspicious"])
+
+        update_interval = float(config["SPAM"]["update"])
+        scheduler = sched.scheduler()
+        BLOCK_LIST.update_and_schedule(scheduler, update_interval)
+        SUS_LIST.update_and_schedule(scheduler, update_interval)
+
+        scheduler_thread = threading.Thread(target=scheduler.run)
+        scheduler_thread.start()
 
     # Logging channels
     if "LOGGING" in config:

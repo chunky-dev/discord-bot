@@ -5,6 +5,8 @@ import discord
 
 
 class DiscordLogger:
+    _LOGGER = logging.getLogger("discord_logger")
+
     def __init__(self, channels: List[int]):
         self._client: Optional[discord.Client] = None
         self._raw_channels = channels
@@ -16,7 +18,10 @@ class DiscordLogger:
     async def register(self, client: discord.Client):
         c = []
         for channel in self._raw_channels:
-            c.append(client.get_channel(channel))
+            channel = client.get_channel(channel)
+            if channel is not None:
+                c.append(channel)
+        self._LOGGER.info(f"Logging to {len(c)} channels.")
         self._channels = c
         self._client = client
 
