@@ -17,6 +17,9 @@ REMOVE_EMOJI = discord.PartialEmoji(name="❌")
 
 BOT_LOG = log.DiscordLogger([])
 
+COMMAND_REGEX = re.compile(r"!bot (?P<command>.*)")
+
+DELETE_BLOCKED_MESSAGES = [False]
 BLOCK_LIST = utils.UrlListKeeper("")
 SUS_LIST = utils.UrlListKeeper("")
 
@@ -55,24 +58,63 @@ class Bot(discord.Client):
         if message.author.id == self.user.id:
             return
 
-        # Check if it is spam
-        for url in utils.get_urls(message.content):
-            if BLOCK_LIST.match(url):
-                self._logger.info(f"Removing message {message.id} by "
-                                  f"{message.author.name} "
-                                  f"#{message.author.discriminator} "
-                                  f"({message.author.id}) for spam: "
-                                  f"{message.content}")
-                await BOT_LOG.log(lambda: self._log_spam(message, True))
-                await message.delete()
+        # Check for bot commands
+        if message.channel.id in BOT_LOG.get_channels():
+            match = COMMAND_REGEX.match(message.content)
+            if match is not None:
+                command = match.group("command")
+                if command == "help":
+                    self._logger.info(f"Help run by "
+                                      f"{message.author.name} "
+                                      f"#{message.author.discriminator} "
+                                      f"({message.author.id}")
+                    await message.reply(
+                        content="Bot commands:\n"
+                                "  !bot spam on - enable spam detection\n"
+                                "  !bot spam off - disable spam detection",
+                        mention_author=False
+                    )
+                elif command == "spam off":
+                    DELETE_BLOCKED_MESSAGES[0] = False
+                    self._logger.info(f"Spam detection disabled by "
+                                      f"{message.author.name} "
+                                      f"#{message.author.discriminator} "
+                                      f"({message.author.id})")
+                    await message.reply(
+                        content="Spam detection disabled.",
+                        mention_author=False
+                    )
+                elif command == "spam on":
+                    DELETE_BLOCKED_MESSAGES[0] = True
+                    self._logger.info(f"Spam detection enabled by "
+                                      f"{message.author.name} "
+                                      f"#{message.author.discriminator} "
+                                      f"({message.author.id})")
+                    await message.reply(
+                        content="Spam detection enabled.",
+                        mention_author=False
+                    )
                 return
-            if SUS_LIST.match(url):
-                self._logger.info(f"Suspicious message {message.id} by"
-                                  f"{message.author.name} "
-                                  f"#{message.author.discriminator} "
-                                  f"({message.author.id}):"
-                                  f"{message.content}")
-                await BOT_LOG.log(lambda: self._log_spam(message, False))
+
+        # Check if it is spam
+        if DELETE_BLOCKED_MESSAGES[0]:
+            for url in utils.get_urls(message.content):
+                if BLOCK_LIST.match(url):
+                    self._logger.info(f"Removing message {message.id} by "
+                                      f"{message.author.name} "
+                                      f"#{message.author.discriminator} "
+                                      f"({message.author.id}) for spam: "
+                                      f"{message.content}")
+                    await BOT_LOG.log(lambda: self._log_spam(message, True))
+                    await message.delete()
+                    return
+                if SUS_LIST.match(url):
+                    self._logger.info(f"Suspicious message {message.id} by "
+                                      f"{message.author.name} "
+                                      f"#{message.author.discriminator} "
+                                      f"({message.author.id}):"
+                                      f"{message.content}")
+                    await BOT_LOG.log(lambda: self._log_spam(message, False))
 
         # Check if we are in the renderers channel
         for channel, warn in self._image_only:
@@ -265,6 +307,9 @@ def main():
 
     # Spam lists
     if "SPAM" in config:
+        if config["SPAM"].get("enabled", "false").lower() == "true":
+            DELETE_BLOCKED_MESSAGES[0] = True  # noqa
+
         BLOCK_LIST.set_url(config["SPAM"]["block"])
         SUS_LIST.set_url(config["SPAM"]["suspicious"])
 
