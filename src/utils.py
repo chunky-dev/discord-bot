@@ -144,12 +144,19 @@ class UrlListKeeper:
 
     def match(self, url: urllib.parse.ParseResult):
         loc = url.netloc.strip()
-        return loc in self._lists
+        if len(loc) > 0:
+            if loc in self._lists:
+                return True
+            for url in self._lists:
+                if loc.endswith(url):
+                    return True
+        return False
 
     def update(self):
         self._LOGGER.info("Updating block list...")
         with requests.get(self._url) as res:
-            links = res.text.split("\n")
+            links = res.json()
+            links = links["domains"]
             links = {i.strip() for i in links}
             self._lists = links
         self._LOGGER.info(f"Updated block list: {self._url}")

@@ -15,6 +15,9 @@ class DiscordLogger:
     def set_channels(self, channels: List[int]):
         self._raw_channels = channels
 
+    def get_channels(self) -> List[int]:
+        return self._raw_channels
+
     async def register(self, client: discord.Client):
         c = []
         for channel in self._raw_channels:
