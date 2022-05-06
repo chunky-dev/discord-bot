@@ -178,7 +178,7 @@ class Bot(discord.Client):
         )
         e.add_field(
             name="From",
-            value=f"{message.author.name}#{message.author.discriminator}",
+            value=f"{message.author.mention}",
             inline=True
         )
         e.timestamp = message.created_at
@@ -193,20 +193,19 @@ class Bot(discord.Client):
             type="rich"
         )
         e.add_field(
-            name="In Channel",
-            value=f"{message.channel.id} ({message.channel.name})",
-            inline=False
-        )
-        e.add_field(
-            name="Message ID",
-            value=str(message.id),
+            name="Channel",
+            value=f"<#{message.channel.id}>",
             inline=True
         )
         e.add_field(
             name="From",
-            value=f"{message.author.name}#{message.author.discriminator} "
-                  f"({message.author.id})",
+            value=f"{message.author.mention}",
             inline=True
+        )
+        e.add_field(
+            name="Message ID",
+            value=str(message.id),
+            inline=False
         )
         e.timestamp = message.created_at
         return e
