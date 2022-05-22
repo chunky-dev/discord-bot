@@ -148,7 +148,7 @@ class UrlListKeeper:
             if loc in self._lists:
                 return True
             for url in self._lists:
-                if loc.endswith(url):
+                if loc.endswith("." + url):
                     return True
         return False
 
