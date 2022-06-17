@@ -10,7 +10,7 @@ import github
 import github.Repository
 
 IMAGE_SUFFIXES = [
-    ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".gif", ".gifv", ".mp4", ".webm"
+    ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".gif", ".gifv", ".mp4", ".webm", ".mov"
 ]
 
 URL_REGEX = re.compile(r"http\S*")
