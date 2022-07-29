@@ -58,6 +58,10 @@ class Bot(discord.Client):
         if message.author.id == self.user.id:
             return
 
+        # Check if message is a system message
+        if message.is_system():
+            return
+
         # Check for bot commands
         if message.channel.id in BOT_LOG.get_channels():
             match = COMMAND_REGEX.match(message.content)
