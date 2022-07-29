@@ -61,10 +61,21 @@ def is_image(message: discord.Message) -> bool:
     return False
 
 
-def clip_string_length(string: str, length: int):
+def clip_string_length(string: Optional[str], length: int) -> str:
     """ Clip a string to some amount of characters. """
+    if string is None:
+        return "None"
     if len(string) >= length:
         return string[:length - 3].rstrip() + "..."
+    return string
+
+
+def ensure_embeddable(string: Optional[str]) -> str:
+    """ Ensure a string is embeddable """
+    if string is None:
+        return "None"
+    if len(string.strip()) == 0:
+        return string + "\u200B"
     return string
 
 
@@ -77,11 +88,11 @@ def generate_gh_embed(number: int, repo: github.Repository.Repository) -> \
             title=issue.html_url,
             url=issue.html_url,
             type="rich",
-            description=issue.title,
+            description=ensure_embeddable(issue.title),
         )
         embed.add_field(
             name="By",
-            value=issue.user.login,
+            value=ensure_embeddable(issue.user.login),
             inline=True
         )
         embed.add_field(
@@ -91,7 +102,7 @@ def generate_gh_embed(number: int, repo: github.Repository.Repository) -> \
         )
         embed.add_field(
             name="Description",
-            value=clip_string_length(issue.body, 200),
+            value=ensure_embeddable(clip_string_length(issue.body, 200)),
             inline=False
         )
         return embed
@@ -113,12 +124,12 @@ def generate_gh_embed_snippet(embed: discord.Embed, number: id,
         )
         embed.add_field(
             name="Title",
-            value=issue.title,
+            value=ensure_embeddable(issue.title),
             inline=True
         )
         embed.add_field(
             name="By",
-            value=issue.user.login,
+            value=ensure_embeddable(issue.user.login),
             inline=True
         )
         embed.add_field(
