@@ -79,11 +79,12 @@ def ensure_embeddable(string: Optional[str]) -> str:
     return string
 
 
-def generate_gh_embed(number: int, repo: github.Repository.Repository) -> \
+def generate_gh_embed(issue, gh: github.Github) -> \
         Optional[discord.Embed]:
     """ Generate a single discord embed from a GitHub issue / pull request number. """
     try:
-        issue = repo.get_issue(number)
+        repo = gh.get_repo(f"{issue[0]}/{issue[1]}")
+        issue = repo.get_issue(int(issue[2]))
         embed = discord.Embed(
             title=issue.html_url,
             url=issue.html_url,
@@ -113,10 +114,11 @@ def generate_gh_embed(number: int, repo: github.Repository.Repository) -> \
 
 
 def generate_gh_embed_snippet(embed: discord.Embed, number: id,
-                              repo: github.Repository.Repository):
+                              gh: github.Github):
     """ Generate a partial discord embed from a GitHub issue / pull request number. """
     try:
-        issue = repo.get_issue(number)
+        repo = gh.get_repo(f"{issue[0]}/{issue[1]}")
+        issue = repo.get_issue(int(issue[2]))
         embed.add_field(
             name="Link",
             value=issue.html_url,
