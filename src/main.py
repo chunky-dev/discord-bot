@@ -39,14 +39,17 @@ class Bot(discord.Client):
     react-remove messages, and deleting non-images from image only channels.
     """
 
-    GH_REGEX = re.compile(r"#\d+")
+    GH_REGEX = re.compile(r"(([a-zA-Z\d]{1}[-a-zA-Z\d]+)/)?([\-\w]+)?#(\d+)")
 
-    def __init__(self, repo, image_only: List[Tuple[int, str]],
+    def __init__(self, repo, gh, default_org: str, default_repo: str, image_only: List[Tuple[int, str]],
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._repo = repo
+        self._gh = gh
         self._image_only = image_only
         self._logger = logging.getLogger("bot")
+        self._default_org = default_org
+        self._default_repo = default_repo
 
     async def on_ready(self):
         await BOT_LOG.register(self)
@@ -137,20 +140,21 @@ class Bot(discord.Client):
                 return
 
         # Look for GitHub issues / pull requests
-        numbers = self.GH_REGEX.findall(message.content)
-        numbers = [int(number[1:]) for number in numbers]
+        issues = self.GH_REGEX.findall(message.content)
+        print(issues)
+        issues = [(match[1] or self._default_org, match[2] or self._default_repo, match[3]) for match in issues]
 
         # Create the embed
         embed = None
-        if len(numbers) == 1:
-            self._logger.info(f"Message {message.id} with one GitHub number.")
-            embed = utils.generate_gh_embed(numbers[0], self._repo)
-        elif len(numbers) > 1:
-            self._logger.info(f"Message {message.id} with {len(numbers)} "
-                              f"GitHub numbers.")
+        if len(issues) == 1:
+            self._logger.info(f"Message {message.id} with one GitHub issue.")
+            embed = utils.generate_gh_embed(issues[0], self._gh)
+        elif len(issues) > 1:
+            self._logger.info(f"Message {message.id} with {len(issues)} "
+                              f"GitHub issues.")
             embed = discord.Embed(title="Issues / pull requests")
-            for number in numbers:
-                utils.generate_gh_embed_snippet(embed, number, self._repo)
+            for issue in issues:
+                utils.generate_gh_embed_snippet(embed, issue, self._gh)
 
         # Send the message
         if embed is not None:
@@ -338,8 +342,11 @@ def main():
     if "repository" not in config["GITHUB"]:
         print("Config must have \"repository\" under [GITHUB] section.")
         return
+    if "organization" not in config["GITHUB"]:
+        print("Config must have \"organization\" under [GITHUB] section.")
+        return
     gh = github.Github(login_or_token=args.github)
-    repo = gh.get_repo(config["GITHUB"]["repository"])
+    repo = gh.get_repo(f"{config['GITHUB']['organization']}/{config['GITHUB']['repository']}")
 
     # Image only channels
     image_only: List[Tuple[int, str]] = []
@@ -353,7 +360,7 @@ def main():
         logging.getLogger("bot").warning("Config does not contain an [IMAGE_ONLY] "
                                          "section. Bot will not filter any channels.")
 
-    bot = Bot(repo, image_only)
+    bot = Bot(repo, gh, config["GITHUB"]["organization"], config["GITHUB"]["repository"], image_only)
     _slash = Slash(repo, image_only, client=bot, debug_guild=args.debug_guild,
                    sync_commands=True)
 
