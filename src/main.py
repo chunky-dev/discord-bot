@@ -103,8 +103,8 @@ class Bot(discord.Client):
                     )
                 return
 
-        # Check if it is spam
         if DELETE_BLOCKED_MESSAGES[0]:
+            # Check if it is spam
             for url in utils.get_urls(message.content):
                 if BLOCK_LIST.match(url):
                     self._logger.info(f"Removing message {message.id} by "
@@ -123,21 +123,21 @@ class Bot(discord.Client):
                                       f"{message.content}")
                     await BOT_LOG.log(lambda: self._log_spam(message, False))
 
-        # Check if we are in the renderers channel
-        for channel, warn in self._image_only:
-            if message.channel.id == channel:
-                if not utils.is_image(message):
-                    self._logger.info(f"Removing message {message.id} in "
-                                      f"{message.channel.id} for not having "
-                                      f"an image: {message.content}")
-                    await BOT_LOG.log(lambda: self._log_renderers_delete(message))
-                    warning = await message.reply(
-                        content=warn,
-                        mention_author=True
-                    )
-                    await message.delete()
-                    await warning.delete(delay=10)
-                return
+            # Check if we are in the renderers channel
+            for channel, warn in self._image_only:
+                if message.channel.id == channel:
+                    if not utils.is_image(message):
+                        self._logger.info(f"Removing message {message.id} in "
+                                          f"{message.channel.id} for not having "
+                                          f"an image: {message.content}")
+                        await BOT_LOG.log(lambda: self._log_renderers_delete(message))
+                        warning = await message.reply(
+                            content=warn,
+                            mention_author=True
+                        )
+                        await message.delete()
+                        await warning.delete(delay=10)
+                    return
 
         # Look for GitHub issues / pull requests
         issues = self.GH_REGEX.findall(message.content)
