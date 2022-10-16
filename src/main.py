@@ -39,7 +39,7 @@ class Bot(discord.Client):
     react-remove messages, and deleting non-images from image only channels.
     """
 
-    GH_REGEX = re.compile(r"(([a-zA-Z\d]{1}[-a-zA-Z\d]+)/)?([\-\w]+)?#(\d+)")
+    GH_REGEX = re.compile(r"(\\)?(([a-zA-Z\d]{1}[-a-zA-Z\d]+)/)?([\-\w]+)?#(\d+)")
 
     def __init__(self, repo, gh, default_org: str, default_repo: str, image_only: List[Tuple[int, str]],
                  *args, **kwargs):
@@ -141,8 +141,7 @@ class Bot(discord.Client):
 
         # Look for GitHub issues / pull requests
         issues = self.GH_REGEX.findall(message.content)
-        print(issues)
-        issues = [(match[1] or self._default_org, match[2] or self._default_repo, match[3]) for match in issues]
+        issues = [(match[2] or self._default_org, match[3] or self._default_repo, match[4],) for match in issues if match[0] != '\\']
 
         # Create the embed
         embed = None
