@@ -1,5 +1,5 @@
 import sched
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Tuple
 import logging
 import re
 import urllib.parse
@@ -79,7 +79,7 @@ def ensure_embeddable(string: Optional[str]) -> str:
     return string
 
 
-def generate_gh_embed(issue, gh: github.Github) -> \
+def generate_gh_embed(issue: Tuple[str, str, int], gh: github.Github) -> \
         Optional[discord.Embed]:
     """ Generate a single discord embed from a GitHub issue / pull request number. """
     try:

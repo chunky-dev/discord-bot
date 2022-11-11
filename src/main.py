@@ -1,10 +1,10 @@
-import sched
-import threading
-from typing import List, Tuple
 import argparse
 import configparser
 import logging
 import re
+import sched
+import threading
+from typing import List, Tuple
 
 import discord
 import discord_slash
@@ -41,15 +41,14 @@ class Bot(discord.Client):
 
     GH_REGEX = re.compile(r"(([a-zA-Z\d]{1}[-a-zA-Z\d]+)/)?([\-\w]+)?#(\d+)")
 
-    def __init__(self, repo, gh, default_org: str, default_repo: str, image_only: List[Tuple[int, str]],
-                 *args, **kwargs):
+    def __init__(self, gh: github.Github, default_org: str, default_repo: str,
+                 image_only: List[Tuple[int, str]], *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._repo = repo
         self._gh = gh
-        self._image_only = image_only
-        self._logger = logging.getLogger("bot")
         self._default_org = default_org
         self._default_repo = default_repo
+        self._image_only = image_only
+        self._logger = logging.getLogger("bot")
 
     async def on_ready(self):
         await BOT_LOG.register(self)
@@ -141,7 +140,6 @@ class Bot(discord.Client):
 
         # Look for GitHub issues / pull requests
         issues = self.GH_REGEX.findall(message.content)
-        print(issues)
         issues = [(match[1] or self._default_org, match[2] or self._default_repo, match[3]) for match in issues]
 
         # Create the embed
@@ -256,9 +254,12 @@ class Bot(discord.Client):
 class Slash(discord_slash.SlashCommand):
     """ /gh Slash command. """
 
-    def __init__(self, repo, image_only: List[Tuple[int, str]], *args, **kwargs):
+    def __init__(self, gh: github.Github, default_org: str, default_repo: str,
+                 image_only: List[Tuple[int, str]], *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._repo = repo
+        self._gh = gh
+        self._default_org = default_org
+        self._default_repo = default_repo
         self._logger = logging.getLogger("bot-slash")
         self._image_only_channels = {i[0] for i in image_only}
 
@@ -268,7 +269,7 @@ class Slash(discord_slash.SlashCommand):
             description="Get a Github pull request / issue from its number."
         )
 
-    async def gh(self, ctx, number: int):
+    async def gh(self, ctx, number: int, org: str = "", repo: str = ""):
         """ /gh [number] command. """
 
         if ctx.channel_id in self._image_only_channels:
@@ -278,7 +279,7 @@ class Slash(discord_slash.SlashCommand):
                            hidden=True)
             return
 
-        embed = utils.generate_gh_embed(number, self._repo)
+        embed = utils.generate_gh_embed((org or self._default_org, repo or self._default_repo, number,), self._gh)
         if embed is not None:
             self._logger.info(f"Slash command with valid GitHub number #{number}.")
             embed.set_footer(text=f"React with {REMOVE_EMOJI} to remove.\n"
@@ -291,7 +292,6 @@ class Slash(discord_slash.SlashCommand):
                            hidden=True)
 
 
-# skipcq PY-D0003 - docstring for main
 def main():
     parser = argparse.ArgumentParser(description="Chunky Discord Bot")
     parser.add_argument("discord", help="Discord API key.")
@@ -360,9 +360,9 @@ def main():
         logging.getLogger("bot").warning("Config does not contain an [IMAGE_ONLY] "
                                          "section. Bot will not filter any channels.")
 
-    bot = Bot(repo, gh, config["GITHUB"]["organization"], config["GITHUB"]["repository"], image_only)
-    _slash = Slash(repo, image_only, client=bot, debug_guild=args.debug_guild,
-                   sync_commands=True)
+    bot = Bot(gh, config["GITHUB"]["organization"], config["GITHUB"]["repository"], image_only)
+    _slash = Slash(gh, config["GITHUB"]["organization"], config["GITHUB"]["repository"],
+                   image_only, client=bot, debug_guild=args.debug_guild, sync_commands=True)
 
     # OAUTH2 must have `bot` and `applications.commands` scopes
     # Bot permissions: 274877982784
