@@ -108,12 +108,13 @@ def generate_gh_embed(issue: Tuple[str, str, int], gh: github.Github) -> \
         )
         return embed
     except github.GithubException as e:
-        logging.getLogger("github").warning(f"Failed to fetch object number {number}. "
-                                            f"{e}")
+        logging.getLogger("github").warning(
+            f"Failed to fetch object number {issue[0]}/{issue[1]}. "
+            f"{e}")
         return None
 
 
-def generate_gh_embed_snippet(embed: discord.Embed, number: id,
+def generate_gh_embed_snippet(embed: discord.Embed, issue: Tuple[str, str, int],
                               gh: github.Github):
     """ Generate a partial discord embed from a GitHub issue / pull request number. """
     try:
@@ -140,8 +141,9 @@ def generate_gh_embed_snippet(embed: discord.Embed, number: id,
             inline=True
         )
     except github.GithubException as e:
-        logging.getLogger("github").warning(f"Failed to fetch object number {number}. "
-                                            f"{e}")
+        logging.getLogger("github").warning(
+            f"Failed to fetch object number {issue[0]}/{issue[1]}. "
+            f"{e}")
 
 
 class UrlListKeeper:
