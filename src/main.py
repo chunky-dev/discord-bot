@@ -42,13 +42,16 @@ class Bot(discord.Client):
     GH_REGEX = re.compile(r"(\\)?(([a-zA-Z\d]{1}[-a-zA-Z\d]+)/)?([\-\w]+)?#(\d+)")
 
     def __init__(self, gh: github.Github, default_org: str, default_repo: str,
-                 image_only: List[Tuple[int, str]], *args, **kwargs):
+                 image_only: List[Tuple[int, str]],
+                 block_regex: List[Tuple[str, re.Pattern]],
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._gh = gh
         self._default_org = default_org
         self._default_repo = default_repo
         self._image_only = image_only
         self._logger = logging.getLogger("bot")
+        self._blocks = block_regex
 
     async def on_ready(self):
         await BOT_LOG.register(self)
@@ -121,6 +124,29 @@ class Bot(discord.Client):
                                       f"({message.author.id}):"
                                       f"{message.content}")
                     await BOT_LOG.log(lambda: self._log_spam(message, False))
+
+            # Check for @everyone (and failed)
+            if not message.mention_everyone and ("@everyone" in message.content or "@here" in message.content):
+                self._logger.info(f"Removing message {message.id} by "
+                                  f"{message.author.name} "
+                                  f"#{message.author.discriminator} "
+                                  f"({message.author.id}) for spam (@everyone/@here): "
+                                  f"{message.content}")
+                await BOT_LOG.log(lambda: self._log_spam(message, True))
+                await message.delete()
+                return
+
+            # Check any block regexes
+            for name, regex in self._blocks:
+                if regex.match(message.content):
+                    self._logger.info(f"Removing message {message.id} by "
+                                      f"{message.author.name} "
+                                      f"#{message.author.discriminator} "
+                                      f"({message.author.id}) for spam regex ({name}): "
+                                      f"{message.content}")
+                    await BOT_LOG.log(lambda: self._log_spam(message, True))
+                    await message.delete()
+                    return
 
             # Check if we are in the renderers channel
             for channel, warn in self._image_only:
@@ -312,6 +338,12 @@ def main():
     config = configparser.ConfigParser()
     config.read(args.config)
 
+    # Block regexes
+    block_regex = []
+    if "BLOCK" in config:
+        for tag, regex in config["BLOCK"].items():
+            block_regex.append((tag, re.compile(regex),))
+
     # Spam lists
     if "SPAM" in config:
         if config["SPAM"].get("enabled", "false").lower() == "true":
@@ -360,7 +392,7 @@ def main():
         logging.getLogger("bot").warning("Config does not contain an [IMAGE_ONLY] "
                                          "section. Bot will not filter any channels.")
 
-    bot = Bot(gh, config["GITHUB"]["organization"], config["GITHUB"]["repository"], image_only)
+    bot = Bot(gh, config["GITHUB"]["organization"], config["GITHUB"]["repository"], image_only, block_regex)
     _slash = Slash(gh, config["GITHUB"]["organization"], config["GITHUB"]["repository"],
                    image_only, client=bot, debug_guild=args.debug_guild, sync_commands=True)
 
